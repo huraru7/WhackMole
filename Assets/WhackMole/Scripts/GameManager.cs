@@ -7,6 +7,8 @@ public class GameManager : MonoBehaviour
 {
     public static GameManager Instance { get; private set; }
 
+    private const int SecondsPerMinute = 60;
+
     [Header("Game Settings")]
     [SerializeField] private float gameDuration = 30f;
 
@@ -23,10 +25,10 @@ public class GameManager : MonoBehaviour
     [SerializeField] private TMP_Text   resultText;
 
     private MoleController[] moles;
-    private Camera mainCamera;
-    private int   score;
-    private float timeRemaining;
-    public  bool  IsGameRunning { get; private set; }
+    private Camera           mainCamera;
+    private int              score;
+    private float            timeRemaining;
+    public  bool             IsGameRunning { get; private set; }
 
     private void Awake()
     {
@@ -52,12 +54,9 @@ public class GameManager : MonoBehaviour
         moles = new MoleController[moleBases.Length];
         for (int i = 0; i < moleBases.Length; i++)
         {
-            // 土台の位置に生成するが、子にはしない。
-            // 子にすると土台の非均一スケール(例:0.8,0.5,0.8)を継承して上下動が潰れ、
-            // さらに土台のColliderがクリックを横取りしてOnMouseDownがモグラに届かないため。
-            Transform baseT = moleBases[i];
-            MoleController mole = Instantiate(molePrefab, baseT.position, baseT.rotation);
-            moles[i] = mole;
+            // 土台のスケールを継承して上下動が潰れないよう、子にせずワールド座標で生成する
+            Transform spawnPoint = moleBases[i];
+            moles[i] = Instantiate(molePrefab, spawnPoint.position, spawnPoint.rotation);
         }
     }
 
@@ -76,21 +75,17 @@ public class GameManager : MonoBehaviour
         UpdateTimerUI();
     }
 
+    // クリック位置にレイを飛ばし、当たったモグラを叩く（新 Input System 用）
     private void HandleClick()
     {
-        // 新 Input System でマウス左クリックを検出し、カメラからレイを飛ばして当たったモグラを叩く。
-        if (Mouse.current == null || !Mouse.current.leftButton.wasPressedThisFrame) return;
-        if (mainCamera == null) return;
+        if (mainCamera == null || Mouse.current == null) return;
+        if (!Mouse.current.leftButton.wasPressedThisFrame) return;
 
         Ray ray = mainCamera.ScreenPointToRay(Mouse.current.position.ReadValue());
-        // 土台など手前のColliderに遮られても拾えるよう、レイ上の全ヒットからモグラを探す。
-        foreach (RaycastHit hit in Physics.RaycastAll(ray))
+        if (Physics.Raycast(ray, out RaycastHit hit) &&
+            hit.collider.TryGetComponent(out MoleController mole))
         {
-            if (hit.collider.TryGetComponent(out MoleController mole))
-            {
-                mole.TryHit();
-                break;
-            }
+            mole.TryHit();
         }
     }
 
@@ -119,8 +114,8 @@ public class GameManager : MonoBehaviour
 
     private void UpdateTimerUI()
     {
-        int m = Mathf.FloorToInt(timeRemaining / 60f);
-        int s = Mathf.FloorToInt(timeRemaining % 60f);
-        timerText.text = $"Last Time: {m:D2}:{s:D2}";
+        int minutes = Mathf.FloorToInt(timeRemaining / SecondsPerMinute);
+        int seconds = Mathf.FloorToInt(timeRemaining % SecondsPerMinute);
+        timerText.text = $"Last Time: {minutes:D2}:{seconds:D2}";
     }
 }

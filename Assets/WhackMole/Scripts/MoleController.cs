@@ -17,6 +17,9 @@ public class MoleController : MonoBehaviour
     [SerializeField] private float riseSpeed = 5f;
     [SerializeField] private float sinkSpeed = 4f;
 
+    // 叩かれた時は通常より速く引っ込む倍率
+    private const float HitSinkSpeedMultiplier = 1.5f;
+
     private bool hasBeenHit;
     private bool isUp;
     private Coroutine moleRoutine;
@@ -36,8 +39,7 @@ public class MoleController : MonoBehaviour
         StartCoroutine(MoveTo(hiddenY, sinkSpeed));
     }
 
-    // GameManager がレイキャストで叩いたモグラに対して呼ぶ。
-    // （新 Input System のみ有効な設定では OnMouseDown が呼ばれないため、入力は GameManager 側で処理する）
+    // GameManager がレイキャストで当てたモグラに対して呼ぶ
     public void TryHit()
     {
         if (!isUp || hasBeenHit || !GameManager.Instance.IsGameRunning) return;
@@ -82,7 +84,7 @@ public class MoleController : MonoBehaviour
     private IEnumerator HitReaction()
     {
         isUp = false;
-        yield return StartCoroutine(MoveTo(hiddenY, sinkSpeed * 1.5f));
+        yield return StartCoroutine(MoveTo(hiddenY, sinkSpeed * HitSinkSpeedMultiplier));
         if (!GameManager.Instance.IsGameRunning) yield break;
         moleRoutine = StartCoroutine(MoleCycle());
     }
