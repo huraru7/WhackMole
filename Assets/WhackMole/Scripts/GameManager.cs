@@ -7,8 +7,6 @@ public class GameManager : MonoBehaviour
 {
     public static GameManager Instance { get; private set; }
 
-    private const int SecondsPerMinute = 60;
-
     [Header("Game Settings")]
     [SerializeField] private float gameDuration = 30f;
 
@@ -18,17 +16,21 @@ public class GameManager : MonoBehaviour
 
     [Header("Moles")]
     [SerializeField] private MoleController molePrefab;
-    [SerializeField] private Transform[]    moleBases;
+    [SerializeField] private Transform[] moleBases;
+
+    [Header("Click Detection")]
+    [SerializeField] private LayerMask moleLayerMask = ~0;
+    [SerializeField] private float clickRayDistance = 100f;
 
     [Header("Result UI")]
     [SerializeField] private GameObject resultPanel;
-    [SerializeField] private TMP_Text   resultText;
+    [SerializeField] private TMP_Text resultText;
 
     private MoleController[] moles;
-    private Camera           mainCamera;
-    private int              score;
-    private float            timeRemaining;
-    public  bool             IsGameRunning { get; private set; }
+    private Camera mainCamera;
+    private int score;
+    private float timeRemaining;
+    public bool IsGameRunning { get; private set; }
 
     private void Awake()
     {
@@ -38,8 +40,8 @@ public class GameManager : MonoBehaviour
 
     private void Start()
     {
-        mainCamera    = Camera.main;
-        score         = 0;
+        mainCamera = Camera.main;
+        score = 0;
         timeRemaining = gameDuration;
         IsGameRunning = true;
         if (resultPanel != null) resultPanel.SetActive(false);
@@ -62,8 +64,6 @@ public class GameManager : MonoBehaviour
 
     private void Update()
     {
-        if (!IsGameRunning) return;
-
         HandleClick();
 
         timeRemaining -= Time.deltaTime;
@@ -75,14 +75,14 @@ public class GameManager : MonoBehaviour
         UpdateTimerUI();
     }
 
-    // クリック位置にレイを飛ばし、当たったモグラを叩く（新 Input System 用）
+    // クリック位置にRayを飛ばしてモグラに当たるか見る
     private void HandleClick()
     {
         if (mainCamera == null || Mouse.current == null) return;
         if (!Mouse.current.leftButton.wasPressedThisFrame) return;
 
         Ray ray = mainCamera.ScreenPointToRay(Mouse.current.position.ReadValue());
-        if (Physics.Raycast(ray, out RaycastHit hit) &&
+        if (Physics.Raycast(ray, out RaycastHit hit, clickRayDistance, moleLayerMask) &&
             hit.collider.TryGetComponent(out MoleController mole))
         {
             mole.TryHit();
@@ -95,7 +95,7 @@ public class GameManager : MonoBehaviour
         foreach (var mole in moles) mole.StopMole();
 
         if (resultPanel != null) resultPanel.SetActive(true);
-        if (resultText  != null) resultText.text = $"Finish!\nScore: {score:D2}";
+        if (resultText != null) resultText.text = $"Finish!\n{FormatScore()}";
     }
 
     public void RestartGame()
@@ -110,12 +110,18 @@ public class GameManager : MonoBehaviour
         UpdateScoreUI();
     }
 
-    private void UpdateScoreUI() => scoreText.text = $"Score:{score:D2}";
+    private string FormatScore() => $"Score: {score:D2}";
+
+    private void UpdateScoreUI()
+    {
+        if (scoreText == null) return;
+        scoreText.text = FormatScore();
+    }
 
     private void UpdateTimerUI()
     {
-        int minutes = Mathf.FloorToInt(timeRemaining / SecondsPerMinute);
-        int seconds = Mathf.FloorToInt(timeRemaining % SecondsPerMinute);
-        timerText.text = $"Last Time: {minutes:D2}:{seconds:D2}";
+        if (timerText == null) return;
+        int seconds = Mathf.CeilToInt(timeRemaining);
+        timerText.text = $"Last Time: {seconds:D2}";
     }
 }
